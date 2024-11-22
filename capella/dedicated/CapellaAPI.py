@@ -1616,3 +1616,21 @@ class CapellaAPI(CommonCapellaAPI):
                                                                                             workflow_id)
         resp = self.do_internal_request(url, method="POST")
         return resp
+
+    def trigger_health_report(self, tenant_id, project_id, cluster_id):
+        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/health-advisor".format(self.internal_url, tenant_id,
+                                                                                     project_id, cluster_id)
+        resp = self.do_internal_request(url, "POST")
+        return resp
+
+    def get_health_report_progress(self, tenant_id, project_id, cluster_id):
+        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/health-advisor/progress".format(self.internal_url, tenant_id,
+                                                                                              project_id, cluster_id)
+        resp = self.do_internal_request(url, "GET")
+        return resp
+
+    def list_health_reports(self, tenant_id, project_id, cluster_id):
+        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/health-advisor?page=1&perPage=1&sortBy=createdAt&sortDirection=desc".format(
+            self.internal_url, tenant_id, project_id, cluster_id)
+        resp = self.do_internal_request(url, "GET")
+        return resp
