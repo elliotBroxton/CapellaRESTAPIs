@@ -9,8 +9,12 @@ from ..lib.APIRequests import APIRequests
 class CommonCapellaAPI(APIRequests):
 
     def __init__(self, url, secret, access, user, pwd, TOKEN_FOR_INTERNAL_SUPPORT=None,
-                 TOKEN_FOR_SNAPLOGIC=None):
-        super(CommonCapellaAPI, self).__init__(url, secret, access)
+                 TOKEN_FOR_SNAPLOGIC=None, tls_ca=None, tls_client_cert=None,
+                 tls_client_key=None, tls_verify=None):
+        super(CommonCapellaAPI, self).__init__(
+            url=url, secret=secret, access=access, token=None,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.user = user
         self.pwd = pwd
         self.internal_url = url.replace("https://cloud", "https://", 1)
