@@ -13,9 +13,13 @@ APIs are segregated according to class for better code management.
 
 class OrganizationOperationsAPIs(APIRequests):
 
-    def __init__(self, url, secret, access, bearer_token):
+    def __init__(self, url, secret, access, bearer_token,
+                 tls_ca=None, tls_client_cert=None, tls_client_key=None,
+                 tls_verify=None):
         super(OrganizationOperationsAPIs, self).__init__(
-            url, secret, access, bearer_token)
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.org_ops_API_log = logging.getLogger(__name__)
         self.organization_endpoint = "/v4/organizations"
         self.apikeys_endpoint = self.organization_endpoint + "/{}/apikeys"
@@ -653,9 +657,12 @@ class OrganizationOperationsAPIs(APIRequests):
 class CommonCapellaAPI(APIRequests):
 
     def __init__(self, url, secret, access, user, pwd, bearer_token,
-                 TOKEN_FOR_INTERNAL_SUPPORT=None):
+                 TOKEN_FOR_INTERNAL_SUPPORT=None, tls_ca=None, tls_client_cert=None,
+                 tls_client_key=None, tls_verify=None):
         super(CommonCapellaAPI, self).__init__(
-            url, secret, access, bearer_token)
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.user = user
         self.pwd = pwd
         self.internal_url = url.replace("https://cloud", "https://", 1)
@@ -667,7 +674,9 @@ class CommonCapellaAPI(APIRequests):
             'Content-Type': 'application/json'
         }
         self.org_ops_apis = OrganizationOperationsAPIs(
-            url, secret, access, bearer_token)
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
 
     def trigger_log_collection(self, cluster_id, log_id={}):
         url = self.internal_url + \
@@ -960,7 +969,7 @@ class CommonCapellaAPI(APIRequests):
     :param queue_datetime <str> Date and Time in ISO format (
     YYYY-MM-DDTHH:MM:SSZ) when the upgrade job will be queued.
     :param cluster_ids <list> List of cluster Ids. For columnar cluster pass
-    cluster ID and not instance ID. If not passed, then all clusters with AMI 
+    cluster ID and not instance ID. If not passed, then all clusters with AMI
     version present in current_images will be upgraded.
     :param provider <str> Cloud provider. Accepted value hostedAWS,
     hostedGCP, hostedAzure

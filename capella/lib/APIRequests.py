@@ -20,7 +20,9 @@ import json
 
 class APIRequests(object):
 
-    def __init__(self, url, secret=None, access=None, token=None):
+    def __init__(self, url, secret=None, access=None, token=None,
+                 tls_ca=None, tls_client_cert=None, tls_client_key=None,
+                 tls_verify=None):
         # handles http requests - GET , PUT, POST, DELETE
         # to the Couchbase Cloud APIs
         # Read the values from the environmental variables
@@ -31,9 +33,29 @@ class APIRequests(object):
 
         self._log = logging.getLogger(__name__)
 
+        # TLS / mTLS configuration
+        # Determine verification behavior: explicit tls_verify overrides, then tls_ca, else default False (preserve prior behavior)
+        if tls_verify is not None:
+            self.tls_verify = tls_verify
+        elif tls_ca is not None:
+            self.tls_verify = tls_ca
+        else:
+            # Existing code used verify=False everywhere; keep backward compatible default
+            self.tls_verify = False
+
+        # Prepare client certificate chain
+        if tls_client_cert is not None and tls_client_key is not None:
+            self.tls_client_cert = (tls_client_cert, tls_client_key)
+        else:
+            self.tls_client_cert = tls_client_cert
+
         # We will re-use the first session we setup to avoid
         # the overhead of creating new sessions for each request
         self.network_session = requests.Session()
+        # Apply TLS config to the session
+        self.network_session.verify = self.tls_verify
+        if self.tls_client_cert is not None:
+            self.network_session.cert = self.tls_client_cert
         self.jwt = None
         self.lock = Lock()
 
@@ -84,14 +106,14 @@ class APIRequests(object):
                 cbc_api_response = self.network_session.get(
                     self.API_BASE_URL + api_endpoint,
                     params=params,
-                    verify=False, headers=headers)
+                    headers=headers)
             else:
                 cbc_api_response = self.network_session.get(
                     self.API_BASE_URL + api_endpoint,
                     auth=APIAuth(
                         self.SECRET, self.ACCESS, self.bearer_token),
                     params=params,
-                    verify=False, headers=headers)
+                    headers=headers)
             self._log.info(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -124,14 +146,14 @@ class APIRequests(object):
                 cbc_api_response = self.network_session.post(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
-                    verify=False, headers=headers)
+                    headers=headers)
             else:
                 cbc_api_response = self.network_session.post(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
                     auth=APIAuth(
                         self.SECRET, self.ACCESS, self.bearer_token),
-                    verify=False, headers=headers)
+                    headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -166,7 +188,7 @@ class APIRequests(object):
                     self.API_BASE_URL + api_endpoint,
                     json=json_request_body,
                     data=data_request_body,
-                    verify=False, headers=headers)
+                    headers=headers)
             else:
                 cbc_api_response = self.network_session.put(
                     self.API_BASE_URL + api_endpoint,
@@ -174,7 +196,7 @@ class APIRequests(object):
                     data=data_request_body,
                     auth=APIAuth(
                         self.SECRET, self.ACCESS, self.bearer_token),
-                    verify=False, headers=headers)
+                    headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -200,14 +222,14 @@ class APIRequests(object):
                 cbc_api_response = self.network_session.patch(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
-                    verify=False, headers=headers)
+                    headers=headers)
             else:
                 cbc_api_response = self.network_session.patch(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
                     auth=APIAuth(
                         self.SECRET, self.ACCESS, self.bearer_token),
-                    verify=False, headers=headers)
+                    headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -233,26 +255,26 @@ class APIRequests(object):
                 if request_body is None:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
-                        verify=False, headers=headers)
+                        headers=headers)
                 else:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
-                        verify=False, headers=headers)
+                        headers=headers)
             else:
                 if request_body is None:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
-                        verify=False, headers=headers)
+                        headers=headers)
                 else:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
-                        verify=False, headers=headers)
+                        headers=headers)
 
             self._log.debug(cbc_api_response.content)
 
@@ -274,24 +296,29 @@ class APIRequests(object):
         return (cbc_api_response)
 
     def _urllib_request(self, api, method='GET', headers=None,
-                        params='', timeout=300, verify=False):
+                        params='', timeout=300, verify=None):
         session = requests.Session()
+        # Apply TLS config to the ad-hoc session
+        effective_verify = self.tls_verify if verify is None else verify
+        session.verify = effective_verify
+        if self.tls_client_cert is not None:
+            session.cert = self.tls_client_cert
         try:
             if method == "GET":
                 resp = session.get(api, params=params, headers=headers,
-                                   timeout=timeout, verify=verify)
+                                   timeout=timeout, verify=effective_verify)
             elif method == "POST":
                 resp = session.post(api, data=params, headers=headers,
-                                    timeout=timeout, verify=verify)
+                                    timeout=timeout, verify=effective_verify)
             elif method == "DELETE":
                 resp = session.delete(api, data=params, headers=headers,
-                                      timeout=timeout, verify=verify)
+                                      timeout=timeout, verify=effective_verify)
             elif method == "PUT":
                 resp = session.put(api, data=params, headers=headers,
-                                   timeout=timeout, verify=verify)
+                                   timeout=timeout, verify=effective_verify)
             elif method == "PATCH":
                 resp = session.patch(api, data=params, headers=headers,
-                                     timeout=timeout, verify=verify)
+                                     timeout=timeout, verify=effective_verify)
             return resp
         except requests.exceptions.HTTPError as errh:
             self._log.error("HTTP Error {0}".format(errh))

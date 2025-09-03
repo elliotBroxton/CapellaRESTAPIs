@@ -8,8 +8,13 @@ from ..common.CapellaAPI import CommonCapellaAPI
 
 
 class CapellaAPI(CommonCapellaAPI):
-    def __init__(self, url, username, password, TOKEN_FOR_INTERNAL_SUPPORT=None):
-        super(CapellaAPI, self).__init__(url, None, None, username, password, TOKEN_FOR_INTERNAL_SUPPORT)
+    def __init__(self, url, username, password, TOKEN_FOR_INTERNAL_SUPPORT=None,
+                 tls_ca=None, tls_client_cert=None, tls_client_key=None,
+                 tls_verify=None):
+        super(CapellaAPI, self).__init__(
+            url, None, None, username, password, TOKEN_FOR_INTERNAL_SUPPORT,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.cbc_api_request_headers = {
             'Authorization': 'Bearer %s' % self.TOKEN_FOR_INTERNAL_SUPPORT,
             'Content-Type': 'application/json'
