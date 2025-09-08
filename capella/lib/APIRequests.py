@@ -108,12 +108,19 @@ class APIRequests(object):
                     params=params,
                     headers=headers)
             else:
-                cbc_api_response = self.network_session.get(
-                    self.API_BASE_URL + api_endpoint,
-                    auth=APIAuth(
-                        self.SECRET, self.ACCESS, self.bearer_token),
-                    params=params,
-                    headers=headers)
+                if self.tls_client_cert is None:
+                    cbc_api_response = self.network_session.get(
+                        self.API_BASE_URL + api_endpoint,
+                        auth=APIAuth(
+                            self.SECRET, self.ACCESS, self.bearer_token),
+                        params=params,
+                        headers=headers)
+                else:
+                    # mTLS client cert present: omit APIAuth to ensure only mTLS is used
+                    cbc_api_response = self.network_session.get(
+                        self.API_BASE_URL + api_endpoint,
+                        params=params,
+                        headers=headers)
             self._log.info(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -148,12 +155,18 @@ class APIRequests(object):
                     json=request_body,
                     headers=headers)
             else:
-                cbc_api_response = self.network_session.post(
-                    self.API_BASE_URL + api_endpoint,
-                    json=request_body,
-                    auth=APIAuth(
-                        self.SECRET, self.ACCESS, self.bearer_token),
-                    headers=headers)
+                if self.tls_client_cert is None:
+                    cbc_api_response = self.network_session.post(
+                        self.API_BASE_URL + api_endpoint,
+                        json=request_body,
+                        auth=APIAuth(
+                            self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=headers)
+                else:
+                    cbc_api_response = self.network_session.post(
+                        self.API_BASE_URL + api_endpoint,
+                        json=request_body,
+                        headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -190,13 +203,20 @@ class APIRequests(object):
                     data=data_request_body,
                     headers=headers)
             else:
-                cbc_api_response = self.network_session.put(
-                    self.API_BASE_URL + api_endpoint,
-                    json=json_request_body,
-                    data=data_request_body,
-                    auth=APIAuth(
-                        self.SECRET, self.ACCESS, self.bearer_token),
-                    headers=headers)
+                if self.tls_client_cert is None:
+                    cbc_api_response = self.network_session.put(
+                        self.API_BASE_URL + api_endpoint,
+                        json=json_request_body,
+                        data=data_request_body,
+                        auth=APIAuth(
+                            self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=headers)
+                else:
+                    cbc_api_response = self.network_session.put(
+                        self.API_BASE_URL + api_endpoint,
+                        json=json_request_body,
+                        data=data_request_body,
+                        headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -224,12 +244,18 @@ class APIRequests(object):
                     json=request_body,
                     headers=headers)
             else:
-                cbc_api_response = self.network_session.patch(
-                    self.API_BASE_URL + api_endpoint,
-                    json=request_body,
-                    auth=APIAuth(
-                        self.SECRET, self.ACCESS, self.bearer_token),
-                    headers=headers)
+                if self.tls_client_cert is None:
+                    cbc_api_response = self.network_session.patch(
+                        self.API_BASE_URL + api_endpoint,
+                        json=request_body,
+                        auth=APIAuth(
+                            self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=headers)
+                else:
+                    cbc_api_response = self.network_session.patch(
+                        self.API_BASE_URL + api_endpoint,
+                        json=request_body,
+                        headers=headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -262,19 +288,30 @@ class APIRequests(object):
                         json=request_body,
                         headers=headers)
             else:
-                if request_body is None:
-                    cbc_api_response = self.network_session.delete(
-                        self.API_BASE_URL + api_endpoint,
-                        auth=APIAuth(
-                            self.SECRET, self.ACCESS, self.bearer_token),
-                        headers=headers)
+                if self.tls_client_cert is None:
+                    if request_body is None:
+                        cbc_api_response = self.network_session.delete(
+                            self.API_BASE_URL + api_endpoint,
+                            auth=APIAuth(
+                                self.SECRET, self.ACCESS, self.bearer_token),
+                            headers=headers)
+                    else:
+                        cbc_api_response = self.network_session.delete(
+                            self.API_BASE_URL + api_endpoint,
+                            json=request_body,
+                            auth=APIAuth(
+                                self.SECRET, self.ACCESS, self.bearer_token),
+                            headers=headers)
                 else:
-                    cbc_api_response = self.network_session.delete(
-                        self.API_BASE_URL + api_endpoint,
-                        json=request_body,
-                        auth=APIAuth(
-                            self.SECRET, self.ACCESS, self.bearer_token),
-                        headers=headers)
+                    if request_body is None:
+                        cbc_api_response = self.network_session.delete(
+                            self.API_BASE_URL + api_endpoint,
+                            headers=headers)
+                    else:
+                        cbc_api_response = self.network_session.delete(
+                            self.API_BASE_URL + api_endpoint,
+                            json=request_body,
+                            headers=headers)
 
             self._log.debug(cbc_api_response.content)
 
