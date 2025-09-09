@@ -19,6 +19,7 @@ class ClusterOperationsAPIs(APIRequests):
             tls_ca=tls_ca, tls_client_cert=tls_client_cert,
             tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.cluster_ops_API_log = logging.getLogger(__name__)
+        self.cluster_ops_API_log.propagate = True
         organization_endpoint = "/v4/organizations"
         self.cluster_endpoint = organization_endpoint + "/{}/projects/{}/clusters"
         self.allowedCIDR_endpoint = organization_endpoint + "/{}/projects/{}/clusters/{}/allowedcidrs"
@@ -6356,6 +6357,7 @@ class CapellaAPI(CommonCapellaAPI):
             tls_ca=tls_ca, tls_client_cert=tls_client_cert,
             tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.capellaAPI_log = logging.getLogger(__name__)
+        self.capellaAPI_log.propagate = True
 
     def set_logging_level(self, level):
         self.capellaAPI_log.setLevel(level)

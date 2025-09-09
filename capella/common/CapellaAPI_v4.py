@@ -21,6 +21,7 @@ class OrganizationOperationsAPIs(APIRequests):
             tls_ca=tls_ca, tls_client_cert=tls_client_cert,
             tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.org_ops_API_log = logging.getLogger(__name__)
+        self.org_ops_API_log.propagate = True
         self.organization_endpoint = "/v4/organizations"
         self.apikeys_endpoint = self.organization_endpoint + "/{}/apikeys"
         self.users_endpoint = self.organization_endpoint + "/{}/users"
@@ -667,6 +668,7 @@ class CommonCapellaAPI(APIRequests):
         self.pwd = pwd
         self.internal_url = url.replace("https://cloud", "https://", 1)
         self.commonCapellaAPI_log = logging.getLogger(__name__)
+        self.commonCapellaAPI_log.propagate = True
         self.perPage = 100
         self.TOKEN_FOR_INTERNAL_SUPPORT = TOKEN_FOR_INTERNAL_SUPPORT
         self.cbc_api_request_headers = {

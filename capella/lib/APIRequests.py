@@ -32,6 +32,7 @@ class APIRequests(object):
         self.bearer_token = token
 
         self._log = logging.getLogger(__name__)
+        self._log.propagate = True
 
         # TLS / mTLS configuration
         # Determine verification behavior: explicit tls_verify overrides, then tls_ca, else default False (preserve prior behavior)
@@ -102,13 +103,20 @@ class APIRequests(object):
         self._log.info(api_endpoint)
 
         try:
+            mtls_enabled = self.tls_client_cert is not None
+            authorization_header_present = bool(headers and "Authorization" in headers)
+            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            self._log.info(
+                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
+                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+            )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.get(
                     self.API_BASE_URL + api_endpoint,
                     params=params,
                     headers=headers)
             else:
-                if self.tls_client_cert is None:
+                if not mtls_enabled:
                     cbc_api_response = self.network_session.get(
                         self.API_BASE_URL + api_endpoint,
                         auth=APIAuth(
@@ -149,13 +157,20 @@ class APIRequests(object):
         self._log.debug("Request body: " + str(request_body))
 
         try:
+            mtls_enabled = self.tls_client_cert is not None
+            authorization_header_present = bool(headers and "Authorization" in headers)
+            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            self._log.info(
+                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
+                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+            )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.post(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
                     headers=headers)
             else:
-                if self.tls_client_cert is None:
+                if not mtls_enabled:
                     cbc_api_response = self.network_session.post(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
@@ -196,6 +211,13 @@ class APIRequests(object):
         if data_request_body:
             self._log.debug("Request body: " + str(data_request_body))
         try:
+            mtls_enabled = self.tls_client_cert is not None
+            authorization_header_present = bool(headers and "Authorization" in headers)
+            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            self._log.info(
+                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
+                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+            )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.put(
                     self.API_BASE_URL + api_endpoint,
@@ -203,7 +225,7 @@ class APIRequests(object):
                     data=data_request_body,
                     headers=headers)
             else:
-                if self.tls_client_cert is None:
+                if not mtls_enabled:
                     cbc_api_response = self.network_session.put(
                         self.API_BASE_URL + api_endpoint,
                         json=json_request_body,
@@ -238,13 +260,20 @@ class APIRequests(object):
         self._log.debug("Request body: " + str(request_body))
 
         try:
+            mtls_enabled = self.tls_client_cert is not None
+            authorization_header_present = bool(headers and "Authorization" in headers)
+            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            self._log.info(
+                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
+                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+            )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.patch(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
                     headers=headers)
             else:
-                if self.tls_client_cert is None:
+                if not mtls_enabled:
                     cbc_api_response = self.network_session.patch(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
@@ -277,6 +306,13 @@ class APIRequests(object):
         self._log.debug("Request body: " + str(request_body))
 
         try:
+            mtls_enabled = self.tls_client_cert is not None
+            authorization_header_present = bool(headers and "Authorization" in headers)
+            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            self._log.info(
+                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
+                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+            )
             if headers and "Authorization" in headers:
                 if request_body is None:
                     cbc_api_response = self.network_session.delete(
@@ -288,7 +324,7 @@ class APIRequests(object):
                         json=request_body,
                         headers=headers)
             else:
-                if self.tls_client_cert is None:
+                if not mtls_enabled:
                     if request_body is None:
                         cbc_api_response = self.network_session.delete(
                             self.API_BASE_URL + api_endpoint,
@@ -340,6 +376,12 @@ class APIRequests(object):
         session.verify = effective_verify
         if self.tls_client_cert is not None:
             session.cert = self.tls_client_cert
+        mtls_enabled = self.tls_client_cert is not None
+        authorization_header_present = bool(headers and "Authorization" in headers)
+        self._log.info(
+            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s"
+            % (method, api, mtls_enabled, authorization_header_present)
+        )
         try:
             if method == "GET":
                 resp = session.get(api, params=params, headers=headers,
