@@ -16,6 +16,7 @@ from .APIExceptions import (
 )
 import base64
 import json
+import os
 
 
 class APIRequests(object):
@@ -106,9 +107,31 @@ class APIRequests(object):
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
             api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            verify_mode = (
+                "custom" if isinstance(self.tls_verify, str) else (
+                    "true" if self.tls_verify else "false"
+                )
+            )
+            cert_path = None
+            key_path = None
+            if isinstance(self.tls_client_cert, tuple):
+                cert_path, key_path = self.tls_client_cert
+            elif isinstance(self.tls_client_cert, str):
+                cert_path = self.tls_client_cert
             self._log.info(
-                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
-                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                % (
+                    api_endpoint,
+                    mtls_enabled,
+                    authorization_header_present,
+                    api_auth_attached,
+                    verify_mode,
+                    (os.path.basename(cert_path) if cert_path else None),
+                    (os.path.basename(key_path) if key_path else None),
+                    self.SECRET is not None,
+                    self.ACCESS is not None,
+                    self.bearer_token is not None,
+                )
             )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.get(
@@ -160,9 +183,31 @@ class APIRequests(object):
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
             api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            verify_mode = (
+                "custom" if isinstance(self.tls_verify, str) else (
+                    "true" if self.tls_verify else "false"
+                )
+            )
+            cert_path = None
+            key_path = None
+            if isinstance(self.tls_client_cert, tuple):
+                cert_path, key_path = self.tls_client_cert
+            elif isinstance(self.tls_client_cert, str):
+                cert_path = self.tls_client_cert
             self._log.info(
-                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
-                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                % (
+                    api_endpoint,
+                    mtls_enabled,
+                    authorization_header_present,
+                    api_auth_attached,
+                    verify_mode,
+                    (os.path.basename(cert_path) if cert_path else None),
+                    (os.path.basename(key_path) if key_path else None),
+                    self.SECRET is not None,
+                    self.ACCESS is not None,
+                    self.bearer_token is not None,
+                )
             )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.post(
@@ -214,9 +259,31 @@ class APIRequests(object):
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
             api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            verify_mode = (
+                "custom" if isinstance(self.tls_verify, str) else (
+                    "true" if self.tls_verify else "false"
+                )
+            )
+            cert_path = None
+            key_path = None
+            if isinstance(self.tls_client_cert, tuple):
+                cert_path, key_path = self.tls_client_cert
+            elif isinstance(self.tls_client_cert, str):
+                cert_path = self.tls_client_cert
             self._log.info(
-                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
-                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                % (
+                    api_endpoint,
+                    mtls_enabled,
+                    authorization_header_present,
+                    api_auth_attached,
+                    verify_mode,
+                    (os.path.basename(cert_path) if cert_path else None),
+                    (os.path.basename(key_path) if key_path else None),
+                    self.SECRET is not None,
+                    self.ACCESS is not None,
+                    self.bearer_token is not None,
+                )
             )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.put(
@@ -263,9 +330,31 @@ class APIRequests(object):
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
             api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            verify_mode = (
+                "custom" if isinstance(self.tls_verify, str) else (
+                    "true" if self.tls_verify else "false"
+                )
+            )
+            cert_path = None
+            key_path = None
+            if isinstance(self.tls_client_cert, tuple):
+                cert_path, key_path = self.tls_client_cert
+            elif isinstance(self.tls_client_cert, str):
+                cert_path = self.tls_client_cert
             self._log.info(
-                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
-                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                % (
+                    api_endpoint,
+                    mtls_enabled,
+                    authorization_header_present,
+                    api_auth_attached,
+                    verify_mode,
+                    (os.path.basename(cert_path) if cert_path else None),
+                    (os.path.basename(key_path) if key_path else None),
+                    self.SECRET is not None,
+                    self.ACCESS is not None,
+                    self.bearer_token is not None,
+                )
             )
             if headers and "Authorization" in headers:
                 cbc_api_response = self.network_session.patch(
@@ -309,9 +398,31 @@ class APIRequests(object):
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
             api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            verify_mode = (
+                "custom" if isinstance(self.tls_verify, str) else (
+                    "true" if self.tls_verify else "false"
+                )
+            )
+            cert_path = None
+            key_path = None
+            if isinstance(self.tls_client_cert, tuple):
+                cert_path, key_path = self.tls_client_cert
+            elif isinstance(self.tls_client_cert, str):
+                cert_path = self.tls_client_cert
             self._log.info(
-                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s"
-                % (api_endpoint, mtls_enabled, authorization_header_present, api_auth_attached)
+                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                % (
+                    api_endpoint,
+                    mtls_enabled,
+                    authorization_header_present,
+                    api_auth_attached,
+                    verify_mode,
+                    (os.path.basename(cert_path) if cert_path else None),
+                    (os.path.basename(key_path) if key_path else None),
+                    self.SECRET is not None,
+                    self.ACCESS is not None,
+                    self.bearer_token is not None,
+                )
             )
             if headers and "Authorization" in headers:
                 if request_body is None:
@@ -378,9 +489,31 @@ class APIRequests(object):
             session.cert = self.tls_client_cert
         mtls_enabled = self.tls_client_cert is not None
         authorization_header_present = bool(headers and "Authorization" in headers)
+        verify_mode = (
+            "custom" if isinstance(effective_verify, str) else (
+                "true" if effective_verify else "false"
+            )
+        )
+        cert_path = None
+        key_path = None
+        if isinstance(self.tls_client_cert, tuple):
+            cert_path, key_path = self.tls_client_cert
+        elif isinstance(self.tls_client_cert, str):
+            cert_path = self.tls_client_cert
         self._log.info(
-            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s"
-            % (method, api, mtls_enabled, authorization_header_present)
+            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+            % (
+                method,
+                api,
+                mtls_enabled,
+                authorization_header_present,
+                verify_mode,
+                (os.path.basename(cert_path) if cert_path else None),
+                (os.path.basename(key_path) if key_path else None),
+                self.SECRET is not None,
+                self.ACCESS is not None,
+                self.bearer_token is not None,
+            )
         )
         try:
             if method == "GET":
