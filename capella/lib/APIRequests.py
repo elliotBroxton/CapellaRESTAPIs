@@ -124,24 +124,38 @@ class APIRequests(object):
         if self.jwt is None:
             self.lock.acquire()
             if self.jwt is None:
-                self._log.debug("refreshing token")
-                basic = base64.b64encode(
-                    '{}:{}'.format(
-                        self.user,
-                        self.pwd).encode()).decode()
-                header = {'Authorization': 'Basic %s' % basic}
-                resp = self._urllib_request(
-                    "{}/sessions".format(self.internal_url), method="POST",
-                    headers=header)
-                if resp.status_code != 200:
-                    self._log.warning("Response: {}".format(resp.status_code))
-                    self._log.error("Error : {}".format(resp.content))
-                self.jwt = json.loads(resp.content).get("jwt")
+                if self.tls_client_cert is not None:
+                    # mTLS-only mode: do not perform BASIC /sessions; avoid any Authorization
+                    self._log.info("mTLS enabled: skipping internal BASIC /sessions auth and JWT fetch")
+                    self.jwt = ""
+                else:
+                    self._log.debug("refreshing token")
+                    basic = base64.b64encode(
+                        '{}:{}'.format(
+                            self.user,
+                            self.pwd).encode()).decode()
+                    header = {'Authorization': 'Basic %s' % basic}
+                    # Log BASIC auth usage with redacted password
+                    try:
+                        pwd_len = len(self.pwd) if self.pwd is not None else 0
+                    except Exception:
+                        pwd_len = -1
+                    self._log.info(
+                        "Auth mode: method=POST url=%s/sessions BASIC username=%s password=<redacted len=%s>",
+                        self.internal_url, self.user, pwd_len
+                    )
+                    resp = self._urllib_request(
+                        "{}/sessions".format(self.internal_url), method="POST",
+                        headers=header)
+                    if resp.status_code != 200:
+                        self._log.warning("Response: {}".format(resp.status_code))
+                        self._log.error("Error : {}".format(resp.content))
+                    self.jwt = json.loads(resp.content).get("jwt") or ""
             self.lock.release()
-        cbc_api_request_headers = {
-            'Authorization': 'Bearer %s' % self.jwt,
-            'Content-Type': 'application/json'
-        }
+        # Build headers; omit Authorization entirely when JWT is empty (mTLS-only mode)
+        cbc_api_request_headers = {'Content-Type': 'application/json'}
+        if self.jwt:
+            cbc_api_request_headers['Authorization'] = 'Bearer %s' % self.jwt
         return cbc_api_request_headers
 
     def do_internal_request(self, url, method, params='', headers={}):
@@ -583,6 +597,12 @@ class APIRequests(object):
             session.cert = self.tls_client_cert
         mtls_enabled = self.tls_client_cert is not None
         authorization_header_present = bool(headers and "Authorization" in headers)
+        # Enforce mTLS-only for ad-hoc requests too: strip Authorization header
+        effective_headers = dict(headers) if headers else None
+        auth_header_stripped = False
+        if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+            del effective_headers["Authorization"]
+            auth_header_stripped = True
         verify_mode = (
             "custom" if isinstance(effective_verify, str) else (
                 "true" if effective_verify else "false"
@@ -594,40 +614,43 @@ class APIRequests(object):
             cert_path, key_path = self.tls_client_cert
         elif isinstance(self.tls_client_cert, str):
             cert_path = self.tls_client_cert
-        safe_headers = self._safe_headers(headers)
+        safe_headers_before = self._safe_headers(headers)
+        safe_headers_after = self._safe_headers(effective_headers)
         params_preview = self._preview_obj(params)
         self._log.info(
-            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s headers=%s params=%s"
+            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s auth_header_stripped=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s headers_before=%s headers_after=%s params=%s"
             % (
                 method,
                 api,
                 mtls_enabled,
                 authorization_header_present,
+                auth_header_stripped,
                 verify_mode,
                 cert_path,
                 key_path,
                 self.SECRET is not None,
                 self.ACCESS is not None,
                 self.bearer_token is not None,
-                safe_headers,
+                safe_headers_before,
+                safe_headers_after,
                 params_preview,
             )
         )
         try:
             if method == "GET":
-                resp = session.get(api, params=params, headers=headers,
+                resp = session.get(api, params=params, headers=effective_headers,
                                    timeout=timeout, verify=effective_verify)
             elif method == "POST":
-                resp = session.post(api, data=params, headers=headers,
+                resp = session.post(api, data=params, headers=effective_headers,
                                     timeout=timeout, verify=effective_verify)
             elif method == "DELETE":
-                resp = session.delete(api, data=params, headers=headers,
+                resp = session.delete(api, data=params, headers=effective_headers,
                                       timeout=timeout, verify=effective_verify)
             elif method == "PUT":
-                resp = session.put(api, data=params, headers=headers,
+                resp = session.put(api, data=params, headers=effective_headers,
                                    timeout=timeout, verify=effective_verify)
             elif method == "PATCH":
-                resp = session.patch(api, data=params, headers=headers,
+                resp = session.patch(api, data=params, headers=effective_headers,
                                      timeout=timeout, verify=effective_verify)
             return resp
         except requests.exceptions.HTTPError as errh:
