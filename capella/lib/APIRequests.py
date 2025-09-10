@@ -16,7 +16,6 @@ from .APIExceptions import (
 )
 import base64
 import json
-import os
 
 
 class APIRequests(object):
@@ -63,6 +62,63 @@ class APIRequests(object):
 
     def set_logging_level(self, level):
         self._log.setLevel(level)
+
+    # --- Logging helpers (avoid leaking secrets) ---
+    def _truncate(self, text, limit=800):
+        try:
+            s = str(text)
+        except Exception:
+            return "<unserializable>"
+        if len(s) <= limit:
+            return s
+        return s[:limit] + "...<truncated>"
+
+    def _summarize_auth_header(self, value):
+        try:
+            if not isinstance(value, str):
+                return "<non-string auth>"
+            parts = value.split(" ", 1)
+            scheme = parts[0] if parts else "<unknown>"
+            token_len = len(parts[1]) if len(parts) > 1 else 0
+            return "%s <redacted len=%s>" % (scheme, token_len)
+        except Exception:
+            return "<auth redacted>"
+
+    def _safe_headers(self, headers):
+        if not headers:
+            return {}
+        safe = {}
+        try:
+            for k, v in headers.items():
+                if isinstance(k, str) and k.lower() == "authorization":
+                    safe[k] = self._summarize_auth_header(v)
+                else:
+                    safe[k] = v
+        except Exception:
+            return {"<headers>": "<error building headers snapshot>"}
+        return safe
+
+    def _preview_obj(self, obj, limit=1200):
+        if obj is None:
+            return None
+        try:
+            return self._truncate(json.dumps(obj, sort_keys=True), limit)
+        except Exception:
+            return self._truncate(obj, limit)
+
+    def _cert_key_paths(self):
+        cert_path = None
+        key_path = None
+        if isinstance(self.tls_client_cert, tuple):
+            cert_path, key_path = self.tls_client_cert
+        elif isinstance(self.tls_client_cert, str):
+            cert_path = self.tls_client_cert
+        return cert_path, key_path
+
+    def _verify_description(self, verify_value):
+        if isinstance(verify_value, str):
+            return "custom:%s" % verify_value
+        return "true" if verify_value else "false"
 
     def get_authorization_internal(self):
         if self.jwt is None:
@@ -112,32 +168,40 @@ class APIRequests(object):
                     "true" if self.tls_verify else "false"
                 )
             )
-            cert_path = None
-            key_path = None
-            if isinstance(self.tls_client_cert, tuple):
-                cert_path, key_path = self.tls_client_cert
-            elif isinstance(self.tls_client_cert, str):
-                cert_path = self.tls_client_cert
+            cert_path, key_path = self._cert_key_paths()
+            safe_headers_before = self._safe_headers(headers)
+            # Enforce mTLS-only: strip Authorization header if client cert is configured
+            effective_headers = dict(headers) if headers else None
+            auth_header_stripped = False
+            if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+                del effective_headers["Authorization"]
+                auth_header_stripped = True
+            safe_headers_after = self._safe_headers(effective_headers)
+            params_preview = self._preview_obj(params)
             self._log.info(
-                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s params=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
                     api_auth_attached,
                     verify_mode,
-                    (os.path.basename(cert_path) if cert_path else None),
-                    (os.path.basename(key_path) if key_path else None),
+                    cert_path,
+                    key_path,
                     self.SECRET is not None,
                     self.ACCESS is not None,
                     self.bearer_token is not None,
+                    auth_header_stripped,
+                    safe_headers_before,
+                    safe_headers_after,
+                    params_preview,
                 )
             )
-            if headers and "Authorization" in headers:
+            if effective_headers and "Authorization" in (effective_headers or {}):
                 cbc_api_response = self.network_session.get(
                     self.API_BASE_URL + api_endpoint,
                     params=params,
-                    headers=headers)
+                    headers=effective_headers)
             else:
                 if not mtls_enabled:
                     cbc_api_response = self.network_session.get(
@@ -145,13 +209,13 @@ class APIRequests(object):
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
                         params=params,
-                        headers=headers)
+                        headers=effective_headers)
                 else:
                     # mTLS client cert present: omit APIAuth to ensure only mTLS is used
                     cbc_api_response = self.network_session.get(
                         self.API_BASE_URL + api_endpoint,
                         params=params,
-                        headers=headers)
+                        headers=effective_headers)
             self._log.info(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -188,32 +252,39 @@ class APIRequests(object):
                     "true" if self.tls_verify else "false"
                 )
             )
-            cert_path = None
-            key_path = None
-            if isinstance(self.tls_client_cert, tuple):
-                cert_path, key_path = self.tls_client_cert
-            elif isinstance(self.tls_client_cert, str):
-                cert_path = self.tls_client_cert
+            cert_path, key_path = self._cert_key_paths()
+            safe_headers_before = self._safe_headers(headers)
+            effective_headers = dict(headers) if headers else None
+            auth_header_stripped = False
+            if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+                del effective_headers["Authorization"]
+                auth_header_stripped = True
+            safe_headers_after = self._safe_headers(effective_headers)
+            body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
                     api_auth_attached,
                     verify_mode,
-                    (os.path.basename(cert_path) if cert_path else None),
-                    (os.path.basename(key_path) if key_path else None),
+                    cert_path,
+                    key_path,
                     self.SECRET is not None,
                     self.ACCESS is not None,
                     self.bearer_token is not None,
+                    auth_header_stripped,
+                    safe_headers_before,
+                    safe_headers_after,
+                    body_preview,
                 )
             )
-            if headers and "Authorization" in headers:
+            if effective_headers and "Authorization" in (effective_headers or {}):
                 cbc_api_response = self.network_session.post(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
-                    headers=headers)
+                    headers=effective_headers)
             else:
                 if not mtls_enabled:
                     cbc_api_response = self.network_session.post(
@@ -221,12 +292,12 @@ class APIRequests(object):
                         json=request_body,
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
-                        headers=headers)
+                        headers=effective_headers)
                 else:
                     cbc_api_response = self.network_session.post(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
-                        headers=headers)
+                        headers=effective_headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -264,33 +335,42 @@ class APIRequests(object):
                     "true" if self.tls_verify else "false"
                 )
             )
-            cert_path = None
-            key_path = None
-            if isinstance(self.tls_client_cert, tuple):
-                cert_path, key_path = self.tls_client_cert
-            elif isinstance(self.tls_client_cert, str):
-                cert_path = self.tls_client_cert
+            cert_path, key_path = self._cert_key_paths()
+            safe_headers_before = self._safe_headers(headers)
+            effective_headers = dict(headers) if headers else None
+            auth_header_stripped = False
+            if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+                del effective_headers["Authorization"]
+                auth_header_stripped = True
+            safe_headers_after = self._safe_headers(effective_headers)
+            body_preview_json = self._preview_obj(json_request_body)
+            body_preview_data = self._preview_obj(data_request_body)
             self._log.info(
-                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s json=%s data=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
                     api_auth_attached,
                     verify_mode,
-                    (os.path.basename(cert_path) if cert_path else None),
-                    (os.path.basename(key_path) if key_path else None),
+                    cert_path,
+                    key_path,
                     self.SECRET is not None,
                     self.ACCESS is not None,
                     self.bearer_token is not None,
+                    auth_header_stripped,
+                    safe_headers_before,
+                    safe_headers_after,
+                    body_preview_json,
+                    body_preview_data,
                 )
             )
-            if headers and "Authorization" in headers:
+            if effective_headers and "Authorization" in (effective_headers or {}):
                 cbc_api_response = self.network_session.put(
                     self.API_BASE_URL + api_endpoint,
                     json=json_request_body,
                     data=data_request_body,
-                    headers=headers)
+                    headers=effective_headers)
             else:
                 if not mtls_enabled:
                     cbc_api_response = self.network_session.put(
@@ -299,13 +379,13 @@ class APIRequests(object):
                         data=data_request_body,
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
-                        headers=headers)
+                        headers=effective_headers)
                 else:
                     cbc_api_response = self.network_session.put(
                         self.API_BASE_URL + api_endpoint,
                         json=json_request_body,
                         data=data_request_body,
-                        headers=headers)
+                        headers=effective_headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -335,32 +415,39 @@ class APIRequests(object):
                     "true" if self.tls_verify else "false"
                 )
             )
-            cert_path = None
-            key_path = None
-            if isinstance(self.tls_client_cert, tuple):
-                cert_path, key_path = self.tls_client_cert
-            elif isinstance(self.tls_client_cert, str):
-                cert_path = self.tls_client_cert
+            cert_path, key_path = self._cert_key_paths()
+            safe_headers_before = self._safe_headers(headers)
+            effective_headers = dict(headers) if headers else None
+            auth_header_stripped = False
+            if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+                del effective_headers["Authorization"]
+                auth_header_stripped = True
+            safe_headers_after = self._safe_headers(effective_headers)
+            body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
                     api_auth_attached,
                     verify_mode,
-                    (os.path.basename(cert_path) if cert_path else None),
-                    (os.path.basename(key_path) if key_path else None),
+                    cert_path,
+                    key_path,
                     self.SECRET is not None,
                     self.ACCESS is not None,
                     self.bearer_token is not None,
+                    auth_header_stripped,
+                    safe_headers_before,
+                    safe_headers_after,
+                    body_preview,
                 )
             )
-            if headers and "Authorization" in headers:
+            if effective_headers and "Authorization" in (effective_headers or {}):
                 cbc_api_response = self.network_session.patch(
                     self.API_BASE_URL + api_endpoint,
                     json=request_body,
-                    headers=headers)
+                    headers=effective_headers)
             else:
                 if not mtls_enabled:
                     cbc_api_response = self.network_session.patch(
@@ -368,12 +455,12 @@ class APIRequests(object):
                         json=request_body,
                         auth=APIAuth(
                             self.SECRET, self.ACCESS, self.bearer_token),
-                        headers=headers)
+                        headers=effective_headers)
                 else:
                     cbc_api_response = self.network_session.patch(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
-                        headers=headers)
+                        headers=effective_headers)
             self._log.debug(cbc_api_response.content)
 
         except requests.exceptions.HTTPError:
@@ -403,37 +490,44 @@ class APIRequests(object):
                     "true" if self.tls_verify else "false"
                 )
             )
-            cert_path = None
-            key_path = None
-            if isinstance(self.tls_client_cert, tuple):
-                cert_path, key_path = self.tls_client_cert
-            elif isinstance(self.tls_client_cert, str):
-                cert_path = self.tls_client_cert
+            cert_path, key_path = self._cert_key_paths()
+            safe_headers_before = self._safe_headers(headers)
+            effective_headers = dict(headers) if headers else None
+            auth_header_stripped = False
+            if mtls_enabled and effective_headers and "Authorization" in effective_headers:
+                del effective_headers["Authorization"]
+                auth_header_stripped = True
+            safe_headers_after = self._safe_headers(effective_headers)
+            body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
                     api_auth_attached,
                     verify_mode,
-                    (os.path.basename(cert_path) if cert_path else None),
-                    (os.path.basename(key_path) if key_path else None),
+                    cert_path,
+                    key_path,
                     self.SECRET is not None,
                     self.ACCESS is not None,
                     self.bearer_token is not None,
+                    auth_header_stripped,
+                    safe_headers_before,
+                    safe_headers_after,
+                    body_preview,
                 )
             )
-            if headers and "Authorization" in headers:
+            if effective_headers and "Authorization" in (effective_headers or {}):
                 if request_body is None:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
-                        headers=headers)
+                        headers=effective_headers)
                 else:
                     cbc_api_response = self.network_session.delete(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
-                        headers=headers)
+                        headers=effective_headers)
             else:
                 if not mtls_enabled:
                     if request_body is None:
@@ -441,24 +535,24 @@ class APIRequests(object):
                             self.API_BASE_URL + api_endpoint,
                             auth=APIAuth(
                                 self.SECRET, self.ACCESS, self.bearer_token),
-                            headers=headers)
+                            headers=effective_headers)
                     else:
                         cbc_api_response = self.network_session.delete(
                             self.API_BASE_URL + api_endpoint,
                             json=request_body,
                             auth=APIAuth(
                                 self.SECRET, self.ACCESS, self.bearer_token),
-                            headers=headers)
+                            headers=effective_headers)
                 else:
                     if request_body is None:
                         cbc_api_response = self.network_session.delete(
                             self.API_BASE_URL + api_endpoint,
-                            headers=headers)
+                            headers=effective_headers)
                     else:
                         cbc_api_response = self.network_session.delete(
                             self.API_BASE_URL + api_endpoint,
                             json=request_body,
-                            headers=headers)
+                            headers=effective_headers)
 
             self._log.debug(cbc_api_response.content)
 
@@ -500,19 +594,23 @@ class APIRequests(object):
             cert_path, key_path = self.tls_client_cert
         elif isinstance(self.tls_client_cert, str):
             cert_path = self.tls_client_cert
+        safe_headers = self._safe_headers(headers)
+        params_preview = self._preview_obj(params)
         self._log.info(
-            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s"
+            "Auth mode: method=%s url=%s mtls_enabled=%s authorization_header_present=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s headers=%s params=%s"
             % (
                 method,
                 api,
                 mtls_enabled,
                 authorization_header_present,
                 verify_mode,
-                (os.path.basename(cert_path) if cert_path else None),
-                (os.path.basename(key_path) if key_path else None),
+                cert_path,
+                key_path,
                 self.SECRET is not None,
                 self.ACCESS is not None,
                 self.bearer_token is not None,
+                safe_headers,
+                params_preview,
             )
         )
         try:
