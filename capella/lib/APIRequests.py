@@ -160,10 +160,64 @@ class APIRequests(object):
 
     def do_internal_request(self, url, method, params='', headers={}):
         header = self.get_authorization_internal()
-        header.update(headers)
-        resp = self._urllib_request(
-            url, method, params=params, headers=header)
-        if resp.status_code == 401:
+        header.update(headers or {})
+        mtls_enabled = self.tls_client_cert is not None
+        secrets_present = self.SECRET is not None and self.ACCESS is not None
+        # Strip Authorization header under mTLS
+        effective_headers = dict(header) if header else {}
+        if mtls_enabled and 'Authorization' in effective_headers:
+            del effective_headers['Authorization']
+
+        # Decide path: mTLS + HMAC (no bearer) vs legacy path
+        if mtls_enabled and secrets_present:
+            # Attach HMAC signer
+            safe_before = self._safe_headers(header)
+            safe_after = self._safe_headers(effective_headers)
+            self._log.info(
+                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s headers_before=%s headers_after=%s",
+                method, url, mtls_enabled, True, safe_before, safe_after
+            )
+            try:
+                if method == "GET":
+                    query = params if isinstance(params, dict) else None
+                    resp = self.network_session.get(
+                        url, params=query,
+                        auth=APIAuth(self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=effective_headers)
+                elif method == "POST":
+                    resp = self.network_session.post(
+                        url, data=params,
+                        auth=APIAuth(self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=effective_headers)
+                elif method == "DELETE":
+                    resp = self.network_session.delete(
+                        url, data=params,
+                        auth=APIAuth(self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=effective_headers)
+                elif method == "PUT":
+                    resp = self.network_session.put(
+                        url, data=params,
+                        auth=APIAuth(self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=effective_headers)
+                elif method == "PATCH":
+                    resp = self.network_session.patch(
+                        url, data=params,
+                        auth=APIAuth(self.SECRET, self.ACCESS, self.bearer_token),
+                        headers=effective_headers)
+                else:
+                    resp = self._urllib_request(url, method, params=params, headers=effective_headers)
+            except Exception as e:
+                raise CbcAPIError(e)
+        else:
+            # Bearer (if any) or anonymous path
+            self._log.info(
+                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s headers=%s",
+                method, url, mtls_enabled, False, self._safe_headers(effective_headers)
+            )
+            resp = self._urllib_request(
+                url, method, params=params, headers=effective_headers)
+
+        if resp is not None and resp.status_code == 401:
             self.jwt = None
             return self.do_internal_request(url, method, params)
         return resp
