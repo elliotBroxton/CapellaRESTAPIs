@@ -4,6 +4,7 @@ import base64
 import hmac
 import hashlib
 from requests.auth import AuthBase
+import logging
 
 # Other Libs
 
@@ -23,6 +24,8 @@ class APIAuth(AuthBase):
         self.ACCESS_KEY = access
         self.SECRET_KEY = secret
         self.bearer_token = token
+        self._log = logging.getLogger(__name__)
+        self._log.propagate = True
 
     def __call__(self, r):
         if "v4" in r.url:
@@ -31,6 +34,14 @@ class APIAuth(AuthBase):
                 'Authorization': 'Bearer ' + self.bearer_token,
                 'Content-Type': 'application/json'
             }
+            try:
+                token_len = len(self.bearer_token) if self.bearer_token else 0
+            except Exception:
+                token_len = -1
+            self._log.info(
+                "auth_applied: scheme=Bearer type=JWT url=%s token_len=%s",
+                r.url, token_len
+            )
         else:
             # This is the endpoint being called
             # Split out from the entire URL
@@ -57,6 +68,14 @@ class APIAuth(AuthBase):
                'Couchbase-Timestamp': str(cbc_api_now),
                'Content-Type': 'application/json'
             }
+            try:
+                key_len = len(self.ACCESS_KEY) if self.ACCESS_KEY else 0
+            except Exception:
+                key_len = -1
+            self._log.info(
+                "auth_applied: scheme=Bearer type=HMAC url=%s access_key_len=%s timestamp=%s",
+                r.url, key_len, cbc_api_now
+            )
         # Add our key:values to the request header
         r.headers.update(cbc_api_request_headers)
 

@@ -330,6 +330,9 @@ class APIRequests(object):
                         self.API_BASE_URL + api_endpoint,
                         params=params,
                         headers=effective_headers)
+            # Always log response status
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code'):
+                self._log.info("HTTP response: method=GET endpoint=%s status=%s", api_endpoint, cbc_api_response.status_code)
             self._log.info(cbc_api_response.content)
             if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
                 self._log_http_error(cbc_api_response)
@@ -414,6 +417,8 @@ class APIRequests(object):
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
                         headers=effective_headers)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code'):
+                self._log.info("HTTP response: method=POST endpoint=%s status=%s", api_endpoint, cbc_api_response.status_code)
             self._log.debug(cbc_api_response.content)
             if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
                 self._log_http_error(cbc_api_response)
@@ -504,6 +509,8 @@ class APIRequests(object):
                         json=json_request_body,
                         data=data_request_body,
                         headers=effective_headers)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code'):
+                self._log.info("HTTP response: method=PUT endpoint=%s status=%s", api_endpoint, cbc_api_response.status_code)
             self._log.debug(cbc_api_response.content)
             if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
                 self._log_http_error(cbc_api_response)
@@ -581,6 +588,8 @@ class APIRequests(object):
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
                         headers=effective_headers)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code'):
+                self._log.info("HTTP response: method=PATCH endpoint=%s status=%s", api_endpoint, cbc_api_response.status_code)
             self._log.debug(cbc_api_response.content)
             if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
                 self._log_http_error(cbc_api_response)
@@ -676,6 +685,8 @@ class APIRequests(object):
                             json=request_body,
                             headers=effective_headers)
 
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code'):
+                self._log.info("HTTP response: method=DELETE endpoint=%s status=%s", api_endpoint, cbc_api_response.status_code)
             self._log.debug(cbc_api_response.content)
             if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
                 self._log_http_error(cbc_api_response)
