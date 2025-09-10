@@ -176,7 +176,7 @@ class APIRequests(object):
         try:
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
-            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            hmac_should_attach = (not authorization_header_present) and ((not mtls_enabled) or (mtls_enabled and self.SECRET and self.ACCESS))
             verify_mode = (
                 "custom" if isinstance(self.tls_verify, str) else (
                     "true" if self.tls_verify else "false"
@@ -193,12 +193,12 @@ class APIRequests(object):
             safe_headers_after = self._safe_headers(effective_headers)
             params_preview = self._preview_obj(params)
             self._log.info(
-                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s params=%s"
+                "Auth mode: method=GET endpoint=%s mtls_enabled=%s authorization_header_present=%s hmac_applied=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s params=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
-                    api_auth_attached,
+                    hmac_should_attach,
                     verify_mode,
                     cert_path,
                     key_path,
@@ -217,7 +217,7 @@ class APIRequests(object):
                     params=params,
                     headers=effective_headers)
             else:
-                if not mtls_enabled:
+                if hmac_should_attach:
                     cbc_api_response = self.network_session.get(
                         self.API_BASE_URL + api_endpoint,
                         auth=APIAuth(
@@ -260,7 +260,7 @@ class APIRequests(object):
         try:
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
-            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            hmac_should_attach = (not authorization_header_present) and ((not mtls_enabled) or (mtls_enabled and self.SECRET and self.ACCESS))
             verify_mode = (
                 "custom" if isinstance(self.tls_verify, str) else (
                     "true" if self.tls_verify else "false"
@@ -276,12 +276,12 @@ class APIRequests(object):
             safe_headers_after = self._safe_headers(effective_headers)
             body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
+                "Auth mode: method=POST endpoint=%s mtls_enabled=%s authorization_header_present=%s hmac_applied=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
-                    api_auth_attached,
+                    hmac_should_attach,
                     verify_mode,
                     cert_path,
                     key_path,
@@ -300,7 +300,7 @@ class APIRequests(object):
                     json=request_body,
                     headers=effective_headers)
             else:
-                if not mtls_enabled:
+                if hmac_should_attach:
                     cbc_api_response = self.network_session.post(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
@@ -343,7 +343,7 @@ class APIRequests(object):
         try:
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
-            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            hmac_should_attach = (not authorization_header_present) and ((not mtls_enabled) or (mtls_enabled and self.SECRET and self.ACCESS))
             verify_mode = (
                 "custom" if isinstance(self.tls_verify, str) else (
                     "true" if self.tls_verify else "false"
@@ -360,12 +360,12 @@ class APIRequests(object):
             body_preview_json = self._preview_obj(json_request_body)
             body_preview_data = self._preview_obj(data_request_body)
             self._log.info(
-                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s json=%s data=%s"
+                "Auth mode: method=PUT endpoint=%s mtls_enabled=%s authorization_header_present=%s hmac_applied=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s json=%s data=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
-                    api_auth_attached,
+                    hmac_should_attach,
                     verify_mode,
                     cert_path,
                     key_path,
@@ -386,7 +386,7 @@ class APIRequests(object):
                     data=data_request_body,
                     headers=effective_headers)
             else:
-                if not mtls_enabled:
+                if hmac_should_attach:
                     cbc_api_response = self.network_session.put(
                         self.API_BASE_URL + api_endpoint,
                         json=json_request_body,
@@ -423,7 +423,7 @@ class APIRequests(object):
         try:
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
-            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            hmac_should_attach = (not authorization_header_present) and ((not mtls_enabled) or (mtls_enabled and self.SECRET and self.ACCESS))
             verify_mode = (
                 "custom" if isinstance(self.tls_verify, str) else (
                     "true" if self.tls_verify else "false"
@@ -439,12 +439,12 @@ class APIRequests(object):
             safe_headers_after = self._safe_headers(effective_headers)
             body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
+                "Auth mode: method=PATCH endpoint=%s mtls_enabled=%s authorization_header_present=%s hmac_applied=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
-                    api_auth_attached,
+                    hmac_should_attach,
                     verify_mode,
                     cert_path,
                     key_path,
@@ -463,7 +463,7 @@ class APIRequests(object):
                     json=request_body,
                     headers=effective_headers)
             else:
-                if not mtls_enabled:
+                if hmac_should_attach:
                     cbc_api_response = self.network_session.patch(
                         self.API_BASE_URL + api_endpoint,
                         json=request_body,
@@ -498,7 +498,7 @@ class APIRequests(object):
         try:
             mtls_enabled = self.tls_client_cert is not None
             authorization_header_present = bool(headers and "Authorization" in headers)
-            api_auth_attached = (not authorization_header_present) and (not mtls_enabled)
+            hmac_should_attach = (not authorization_header_present) and ((not mtls_enabled) or (mtls_enabled and self.SECRET and self.ACCESS))
             verify_mode = (
                 "custom" if isinstance(self.tls_verify, str) else (
                     "true" if self.tls_verify else "false"
@@ -514,12 +514,12 @@ class APIRequests(object):
             safe_headers_after = self._safe_headers(effective_headers)
             body_preview = self._preview_obj(request_body)
             self._log.info(
-                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s api_auth_attached=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
+                "Auth mode: method=DELETE endpoint=%s mtls_enabled=%s authorization_header_present=%s hmac_applied=%s verify=%s cert=%s key=%s secret_present=%s access_present=%s bearer_token_present=%s auth_header_stripped=%s headers_before=%s headers_after=%s body=%s"
                 % (
                     api_endpoint,
                     mtls_enabled,
                     authorization_header_present,
-                    api_auth_attached,
+                    hmac_should_attach,
                     verify_mode,
                     cert_path,
                     key_path,
@@ -543,7 +543,7 @@ class APIRequests(object):
                         json=request_body,
                         headers=effective_headers)
             else:
-                if not mtls_enabled:
+                if hmac_should_attach:
                     if request_body is None:
                         cbc_api_response = self.network_session.delete(
                             self.API_BASE_URL + api_endpoint,
