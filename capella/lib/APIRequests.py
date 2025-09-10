@@ -120,6 +120,52 @@ class APIRequests(object):
             return "custom:%s" % verify_value
         return "true" if verify_value else "false"
 
+    def _auth_scheme_from_headers(self, headers):
+        try:
+            if not headers:
+                return None
+            for k, v in headers.items():
+                if isinstance(k, str) and k.lower() == "authorization" and isinstance(v, str):
+                    return v.split(" ", 1)[0]
+        except Exception:
+            return None
+        return None
+
+    def _log_http_error(self, response):
+        try:
+            req = getattr(response, 'request', None)
+            method = getattr(req, 'method', None)
+            url = getattr(req, 'url', None)
+            request_headers = self._safe_headers(getattr(req, 'headers', {}))
+            request_body = None
+            try:
+                body = getattr(req, 'body', None)
+                if body is not None and isinstance(body, (bytes, bytearray)):
+                    try:
+                        request_body = self._truncate(body.decode('utf-8', errors='replace'))
+                    except Exception:
+                        request_body = "<bytes len=%s>" % len(body)
+                else:
+                    request_body = self._preview_obj(body)
+            except Exception:
+                request_body = "<unavailable>"
+
+            status = getattr(response, 'status_code', None)
+            reason = getattr(response, 'reason', None)
+            resp_headers = self._safe_headers(getattr(response, 'headers', {}))
+            try:
+                text = getattr(response, 'text', '')
+            except Exception:
+                text = ''
+            resp_text = self._truncate(text)
+            auth_scheme = self._auth_scheme_from_headers(getattr(req, 'headers', {}))
+            self._log.error(
+                "HTTP failure: method=%s url=%s status=%s reason=%s auth_scheme=%s request_headers=%s request_body=%s response_headers=%s response_body=%s",
+                method, url, status, reason, auth_scheme, request_headers, request_body, resp_headers, resp_text
+            )
+        except Exception as e:
+            self._log.error("Failed to log HTTP error context: %s", e)
+
     def get_authorization_internal(self):
         if self.jwt is None:
             self.lock.acquire()
@@ -285,6 +331,8 @@ class APIRequests(object):
                         params=params,
                         headers=effective_headers)
             self._log.info(cbc_api_response.content)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
+                self._log_http_error(cbc_api_response)
 
         except requests.exceptions.HTTPError:
             error = pprint.pformat(cbc_api_response.json())
@@ -367,6 +415,8 @@ class APIRequests(object):
                         json=request_body,
                         headers=effective_headers)
             self._log.debug(cbc_api_response.content)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
+                self._log_http_error(cbc_api_response)
 
         except requests.exceptions.HTTPError:
             error = pprint.pformat(cbc_api_response.json())
@@ -455,6 +505,8 @@ class APIRequests(object):
                         data=data_request_body,
                         headers=effective_headers)
             self._log.debug(cbc_api_response.content)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
+                self._log_http_error(cbc_api_response)
 
         except requests.exceptions.HTTPError:
             error = pprint.pformat(cbc_api_response.json())
@@ -530,6 +582,8 @@ class APIRequests(object):
                         json=request_body,
                         headers=effective_headers)
             self._log.debug(cbc_api_response.content)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
+                self._log_http_error(cbc_api_response)
 
         except requests.exceptions.HTTPError:
             error = pprint.pformat(cbc_api_response.json())
@@ -623,6 +677,8 @@ class APIRequests(object):
                             headers=effective_headers)
 
             self._log.debug(cbc_api_response.content)
+            if cbc_api_response is not None and hasattr(cbc_api_response, 'status_code') and cbc_api_response.status_code >= 400:
+                self._log_http_error(cbc_api_response)
 
         except requests.exceptions.HTTPError:
             error = pprint.pformat(cbc_api_response.json())
@@ -706,6 +762,8 @@ class APIRequests(object):
             elif method == "PATCH":
                 resp = session.patch(api, data=params, headers=effective_headers,
                                      timeout=timeout, verify=effective_verify)
+            if resp is not None and resp.status_code >= 400:
+                self._log_http_error(resp)
             return resp
         except requests.exceptions.HTTPError as errh:
             self._log.error("HTTP Error {0}".format(errh))
