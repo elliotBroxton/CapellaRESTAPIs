@@ -131,19 +131,6 @@ class APIRequests(object):
             return None
         return None
 
-    def _auth_header_names(self, headers):
-        names = []
-        if not headers:
-            return names
-        try:
-            for k in headers.keys():
-                kl = k.lower() if isinstance(k, str) else ""
-                if kl in ("authorization", "couchbase-timestamp") or kl.startswith("x-cb-"):
-                    names.append(k)
-        except Exception:
-            pass
-        return names
-
     def _log_http_error(self, response):
         try:
             req = getattr(response, 'request', None)
@@ -229,12 +216,12 @@ class APIRequests(object):
 
         # Decide path: mTLS + HMAC (no bearer) vs legacy path
         if mtls_enabled and secrets_present:
-            # Attach HMAC signer via the session
+            # Attach HMAC signer
             safe_before = self._safe_headers(header)
             safe_after = self._safe_headers(effective_headers)
             self._log.info(
-                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s header_names=%s headers_before=%s headers_after=%s",
-                method, url, mtls_enabled, True, self._auth_header_names(effective_headers), safe_before, safe_after
+                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s headers_before=%s headers_after=%s",
+                method, url, mtls_enabled, True, safe_before, safe_after
             )
             try:
                 if method == "GET":
@@ -270,17 +257,15 @@ class APIRequests(object):
         else:
             # Bearer (if any) or anonymous path
             self._log.info(
-                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s header_names=%s headers=%s",
-                method, url, mtls_enabled, False, self._auth_header_names(effective_headers), self._safe_headers(effective_headers)
+                "Auth mode: method=%s url=%s mtls_enabled=%s hmac_applied=%s headers=%s",
+                method, url, mtls_enabled, False, self._safe_headers(effective_headers)
             )
             resp = self._urllib_request(
                 url, method, params=params, headers=effective_headers)
 
-        # Stop recursion: return the response. External retry logic can retry.
-        if resp is not None and resp.status_code >= 400:
-            # Emit concise failure summary as well
-            body_snippet = self._truncate(getattr(resp, 'text', ''))
-            self._log.error("Internal request failed: method=%s url=%s status=%s body=%s", method, url, resp.status_code, body_snippet)
+        if resp is not None and resp.status_code == 401:
+            self.jwt = None
+            return self.do_internal_request(url, method, params)
         return resp
 
     # Methods
