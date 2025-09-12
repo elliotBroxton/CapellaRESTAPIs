@@ -7,9 +7,15 @@ from ..lib.APIRequests import APIRequests
 
 class ColumnarAPIs(APIRequests):
 
-    def __init__(self, url, secret, access, bearer_token):
-        super(ColumnarAPIs, self).__init__(url, secret, access, bearer_token)
+    def __init__(self, url, secret, access, bearer_token,
+                 tls_ca=None, tls_client_cert=None, tls_client_key=None,
+                 tls_verify=None):
+        super(ColumnarAPIs, self).__init__(
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.columnar_ops_API_log = logging.getLogger(__name__)
+        self.columnar_ops_API_log.propagate = True
         self.analytics_clusters_endpoint = "/v4/organizations/{}/projects/{}/analyticsClusters"
         self.org_level_analytics_clusters_endpoint = "/v4/organizations/{}/analyticsClusters"
         self.on_off_endpoint = self.analytics_clusters_endpoint + "/{}/activationState"

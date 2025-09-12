@@ -11,10 +11,15 @@ from ..common.CapellaAPI_v4 import CommonCapellaAPI
 
 class ClusterOperationsAPIs(APIRequests):
 
-    def __init__(self, url, secret, access, bearer_token):
+    def __init__(self, url, secret, access, bearer_token,
+                 tls_ca=None, tls_client_cert=None, tls_client_key=None,
+                 tls_verify=None):
         super(ClusterOperationsAPIs, self).__init__(
-            url, secret, access, bearer_token)
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.cluster_ops_API_log = logging.getLogger(__name__)
+        self.cluster_ops_API_log.propagate = True
         organization_endpoint = "/v4/organizations"
         self.cluster_endpoint = organization_endpoint + "/{}/projects/{}/clusters"
         self.allowedCIDR_endpoint = organization_endpoint + "/{}/projects/{}/clusters/{}/allowedcidrs"
@@ -80,7 +85,7 @@ class ClusterOperationsAPIs(APIRequests):
         self.free_tier_app_svc_endpoint = self.cluster_endpoint + "/{}/appservices/freeTier"
 
         self.user_endpoint = organization_endpoint + "/{}/users"
-    
+
     def create_user(
             self,
             organizationId,
@@ -135,7 +140,7 @@ class ClusterOperationsAPIs(APIRequests):
             userId: The ID of the user to fetch the details of. (UUID)
             headers: Headers to be sent with the API call. (dict)
             **kwargs: Do not use this under normal circumstances. This is only to test negative scenarios. (dict)
-        
+
         Returns:
             Success : Status Code and response (JSON).
             Error : message, hint, code, HttpStatusCode.
@@ -149,7 +154,7 @@ class ClusterOperationsAPIs(APIRequests):
 
         resp = self.api_get("{}/{}".format(self.user_endpoint.format(organizationId), userId), params, headers)
         return resp
-    
+
     def update_user(
             self,
             organizationId,
@@ -166,7 +171,7 @@ class ClusterOperationsAPIs(APIRequests):
             body: The body having new roles for the user. (dict)
             headers: Headers to be sent with the API call. (dict)
             **kwargs: Do not use this under normal circumstances. This is only to test negative scenarios. (dict)
-        
+
         Returns:
             Success : Status Code and response (JSON).
             Error : message, hint, code, HttpStatusCode.
@@ -195,7 +200,7 @@ class ClusterOperationsAPIs(APIRequests):
             userId: The ID of the user to delete. (UUID)
             headers: Headers to be sent with the API call. (dict)
             **kwargs: Do not use this under normal circumstances. This is only to test negative scenarios. (dict)
-        
+
         Returns:
             Success : Status Code and response (JSON).
             Error : message, hint, code, HttpStatusCode.
@@ -209,7 +214,7 @@ class ClusterOperationsAPIs(APIRequests):
 
         resp = self.api_del("{}/{}".format(self.user_endpoint.format(organizationId), userId), params, headers)
         return resp
-    
+
     def list_users(
             self,
             organizationId,
@@ -232,7 +237,7 @@ class ClusterOperationsAPIs(APIRequests):
             projectId: The ID of the project to filter the users by. (UUID)[optional]
             headers: Headers to be sent with the API call. (dict)
             **kwargs: Do not use this under normal circumstances. This is only to test negative scenarios. (dict)
-        
+
         Returns:
             Success : Status Code and response (JSON).
             Error : message, hint, code, HttpStatusCode.
@@ -257,7 +262,7 @@ class ClusterOperationsAPIs(APIRequests):
 
         resp = self.api_get(self.user_endpoint.format(organizationId), params, headers)
         return resp
-    
+
     def fetch_free_tier_cluster_info(
             self,
             organizationId,
@@ -6336,17 +6341,23 @@ class ClusterOperationsAPIs(APIRequests):
 class CapellaAPI(CommonCapellaAPI):
 
     def __init__(self, url, secret, access, user, pwd, bearer_token,
-                 TOKEN_FOR_INTERNAL_SUPPORT=None):
+                 TOKEN_FOR_INTERNAL_SUPPORT=None, tls_ca=None, tls_client_cert=None,
+                 tls_client_key=None, tls_verify=None):
         """
         Making explicit call to init function of inherited classes because the init params differ.
         """
         super(CapellaAPI, self).__init__(
             url=url, secret=secret, access=access, user=user, pwd=pwd,
             bearer_token=bearer_token,
-            TOKEN_FOR_INTERNAL_SUPPORT=TOKEN_FOR_INTERNAL_SUPPORT)
+            TOKEN_FOR_INTERNAL_SUPPORT=TOKEN_FOR_INTERNAL_SUPPORT,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.cluster_ops_apis = ClusterOperationsAPIs(
-            url, secret, access, bearer_token)
+            url, secret, access, bearer_token,
+            tls_ca=tls_ca, tls_client_cert=tls_client_cert,
+            tls_client_key=tls_client_key, tls_verify=tls_verify)
         self.capellaAPI_log = logging.getLogger(__name__)
+        self.capellaAPI_log.propagate = True
 
     def set_logging_level(self, level):
         self.capellaAPI_log.setLevel(level)
