@@ -1929,22 +1929,37 @@ class CapellaAPI(CommonCapellaAPI):
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def list_indexes(self, tenant_id, project_id, cluster_id):
-        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/ui_monitoring/index_table?page=1&perPage=10".format(
+    def list_indexes(self, tenant_id, project_id, cluster_id, **kwargs):
+        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/ui_monitoring/index_table".format(
             self.internal_url, tenant_id, project_id, cluster_id)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def get_query_workload_stats(self, tenant_id, project_id, cluster_id):
+    def get_query_workload_stats(self, tenant_id, project_id, cluster_id, **kwargs):
         url = "{}/v2/organizations/{}/projects/{}/clusters/{}/query-workload-stats".format(
             self.internal_url, tenant_id, project_id, cluster_id)
-        url = "{}?page=1&perPage=25&sortBy=serviceTime&sortDirection=desc&lessThan=false".format(url)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def get_query_workload_filters(self, tenant_id, project_id, cluster_id):
+    def get_query_workload_filters(self, tenant_id, project_id, cluster_id, **kwargs):
         url = "{}/v2/organizations/{}/projects/{}/clusters/{}/query-workload-filters".format(
             self.internal_url, tenant_id, project_id, cluster_id)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
+        resp = self.do_internal_request(url, method="GET")
+        return resp
+
+    def get_fts_index_status(self, cluster_id):
+        url = "{}/v2/databases/{}/proxy/fts/api/indexStatus".format(self.internal_url, cluster_id)
+        resp = self.do_internal_request(url, method="GET")
+        return resp
+
+    def get_tenant_info(self, tenant_id):
+        url = "{}/v2/organizations/{}".format(self.internal_url, tenant_id)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
