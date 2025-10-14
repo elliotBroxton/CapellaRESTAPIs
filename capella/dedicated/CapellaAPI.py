@@ -474,6 +474,12 @@ class CapellaAPI(CommonCapellaAPI):
                                     params=json.dumps(body))
         return resp
 
+    def get_eventing_functions(self, cluster_id):
+        url = '{}/v2/databases/{}/proxy/_p/event/api/v1/functions'.format(self.internal_url, cluster_id)
+
+        resp = self.do_internal_request(url, method="GET")
+        return resp
+
     def __set_eventing_function_settings(self, cluster_id, name, body, function_scope=None):
         url = '{}/v2/databases/{}/proxy/_p/event/api/v1/functions/{}/settings'.format(self.internal_url, cluster_id, name)
 
@@ -1427,14 +1433,19 @@ class CapellaAPI(CommonCapellaAPI):
                 S3 integration example:
                     {
                         "integrationType": "s3",
+                        "name": "string"
                         "data": {
                             "accessKeyId": "sample_access_key_id_2",
                             "secretAccessKey": "sample_secret_access_key_2"
+                            "aws_region": "region_2",
+                            "bucket": "bucket_2",
+                            "folderPath": "path_2"
                         }
                     }
                 OpenAI integration example:
                     {
                        "integrationType": "openAI",
+                       "name": "string"
                        "data": {
                            "key": "sample_secret_key_2"
                        }
@@ -1609,7 +1620,7 @@ class CapellaAPI(CommonCapellaAPI):
         """
         url = "{}/v2/organizations/{}/projects/{}/clusters/{}/ai/workflows/{}".format(self.internal_url, tenant_id,
                                                                                       project_id, cluster_id, workflow_id)
-        resp = self.do_internal_request(url, method="GET")
+        resp = self.do_internal_request(url, method="DELETE")
         return resp
 
     def list_autovec_workflows(self, tenant_id, page=1, per_page=10):
@@ -1739,24 +1750,54 @@ class CapellaAPI(CommonCapellaAPI):
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def deploy_model(self, tenant_id, project_id, cluster_id, payload):
+    def deploy_model(self, tenant_id, payload):
 
         """
         Deploys a LLM or embedding model
         tenant_id: ID of the organization
-        project_id: ID of the project
-        cluster_id: ID of the cluster
         payload:
             Embedding:
             {
-              "compute": "g6.xlarge",
-              "configuration": {
-                "name": "intfloat/e5-mistral-7b-instruct",
-                "kind": "embedding-generation",
-                "parameters": {}
+              "name": "my-embedding-model",
+              "modelCatalogId": "29455162-6925-4b55-a726-9b7cc12c9f4a",
+              "config": {
+                "provider": "hostedAWS",
+                "region": "us-east-1",
+                "multiAZ": true,
+                "compute": {
+                  "instanceType": "g6.xlarge",
+                  "instanceCount": 2
+                }
+              },
+              "parameters": {
+                "tuning": {
+                  "quantization": "full-precision",
+                  "optimization": "throughput",
+                  "dimensions": 4096
+                }
               }
             }
             LLM:
+            {
+              "name": "my-text-generation-model",
+              "modelCatalogId": "5676ca67-c6d8-4db4-9064-66cede4c2f8b",
+              "config": {
+                "provider": "hostedAWS",
+                "region": "us-east-1",
+                "multiAZ": true,
+                "compute": {
+                  "instanceType": "g6.xlarge",
+                  "instanceCount": 2
+                }
+              },
+              "parameters": {
+                "tuning": {
+                  "quantization": "full-precision",
+                  "optimization": "throughput",
+                  "dimensions": 4096
+                }
+              }
+            }
 
         Returns:
             ID of the model deployed
@@ -1765,45 +1806,98 @@ class CapellaAPI(CommonCapellaAPI):
                     "id": "60621d6c-a92c-4219-95c3-eb213b0745b5"
                 }
         """
-        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/languagemodels".format(self.internal_url, tenant_id,
-                                                                                     project_id, cluster_id)
+        url = "{}/v2/organizations/{}/languagemodels".format(self.internal_url, tenant_id)
         resp = self.do_internal_request(url, method="POST", params=json.dumps(payload))
         return resp
 
-    def delete_model(self, tenant_id, project_id, cluster_id, model_id):
+    def delete_model(self, tenant_id, model_id):
         """
         Deletes a model
         Args:
             tenant_id: ID of the organization
-            project_id: ID of the project
-            cluster_id: ID of the cluster
             model_id: ID of the model
 
         Returns:
-            204 No Content on success
+            202 Language model was successfully queued for deletion
         """
-        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/languagemodels/{}".format(self.internal_url, tenant_id,
-                                                                                        project_id, cluster_id,
+        url = "{}/v2/organizations/{}/languagemodels/{}".format(self.internal_url, tenant_id,
                                                                                         model_id)
         resp = self.do_internal_request(url, method="DELETE")
         return resp
 
-    def get_model_details(self, tenant_id, project_id, cluster_id, model_id):
+    def get_model_details(self, tenant_id, model_id):
         """
         Get details of a model
         Args:
             tenant_id: ID of the organization
-            project_id: ID of the project
-            cluster_id: ID of the cluster
             model_id: ID of the model
 
         Returns:
             200 on success and model details:
         """
-        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/languagemodels/{}".format(self.internal_url, tenant_id,
-                                                                                        project_id, cluster_id,
+        url = "{}/v2/organizations/{}/languagemodels/{}".format(self.internal_url, tenant_id,
                                                                                         model_id)
         resp = self.do_internal_request(url, method="GET")
+        return resp
+
+    def create_model_api_key(self, tenant_id, model_id, payload):
+        """
+        Create an API key for a deployed model
+        Args:
+            tenant_id: ID of the organization
+            model_id: ID of the model
+            payload: {
+                        "name": "TestAPIKey",
+                        "description": "Test API Key",
+                        "expiryDuration": 180,
+                        "createdByUserID": "8fbc47a8-8736-492f-a356-3965bd92c219",
+                        "accessPolicy": {
+                          "allowedModels": [
+                            "5ca127fe-49da-4a6a-aef9-08393b97643f"
+                          ],
+                          "allowedIPs": [
+                            "0.0.0.0/0"
+                          ]
+                        }
+                      }
+
+        Returns:
+            200 on success and API key details:
+            {
+                "id": "api-key-id",
+                "name": "my-model-api-key",
+                "apiKey": "api-key-value",
+                "description": "Test API Key",
+                "expiryDuration": 180,
+                "expiry": "2024-10-21T18:00:34.019456588Z",
+                "accessPolicy": {
+                    # TODO
+                }
+            }
+        """
+        url = "{}/v2/organizations/{}/languageModelAPIKeys".format(self.internal_url, tenant_id, model_id)
+        resp = self.do_internal_request(url, method="POST", params=json.dumps(payload))
+        return resp
+
+    def delete_model_api_key(self, tenant_id, api_key_id):
+        """
+        Delete an API key for a deployed model
+        Args:
+            tenant_id: ID of the organization
+            api_key_id: ID of the
+        Returns:
+            202 on successful delete
+        """
+        url = "{}/v2/organizations/{}/languageModelAPIKeys/{}".format(self.internal_url, tenant_id,
+                                                                                       api_key_id)
+        resp = self.do_internal_request(url, method="DELETE")
+        return resp
+
+    def update_model_api_key(self, tenant_id, api_key_id, payload):
+        url = "{}/v2/organizations/{}/languageModelAPIKeys/{}".format(
+            self.internal_url, tenant_id, api_key_id
+        )
+        resp = self.do_internal_request(url, method="PUT", params=json.dumps(payload))
         return resp
 
     def list_models(self, tenant_id, page=1, per_page=10):
@@ -1835,22 +1929,37 @@ class CapellaAPI(CommonCapellaAPI):
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def list_indexes(self, tenant_id, project_id, cluster_id):
-        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/ui_monitoring/index_table?page=1&perPage=10".format(
+    def list_indexes(self, tenant_id, project_id, cluster_id, **kwargs):
+        url = "{}/v2/organizations/{}/projects/{}/clusters/{}/ui_monitoring/index_table".format(
             self.internal_url, tenant_id, project_id, cluster_id)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def get_query_workload_stats(self, tenant_id, project_id, cluster_id):
+    def get_query_workload_stats(self, tenant_id, project_id, cluster_id, **kwargs):
         url = "{}/v2/organizations/{}/projects/{}/clusters/{}/query-workload-stats".format(
             self.internal_url, tenant_id, project_id, cluster_id)
-        url = "{}?page=1&perPage=25&sortBy=serviceTime&sortDirection=desc&lessThan=false".format(url)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
-    def get_query_workload_filters(self, tenant_id, project_id, cluster_id):
+    def get_query_workload_filters(self, tenant_id, project_id, cluster_id, **kwargs):
         url = "{}/v2/organizations/{}/projects/{}/clusters/{}/query-workload-filters".format(
             self.internal_url, tenant_id, project_id, cluster_id)
+        query_params = "&".join("{}={}".format(k, v) for k, v in kwargs.items())
+        url = "{}?{}".format(url, query_params)
+        resp = self.do_internal_request(url, method="GET")
+        return resp
+
+    def get_fts_index_status(self, cluster_id):
+        url = "{}/v2/databases/{}/proxy/fts/api/indexStatus".format(self.internal_url, cluster_id)
+        resp = self.do_internal_request(url, method="GET")
+        return resp
+
+    def get_tenant_info(self, tenant_id):
+        url = "{}/v2/organizations/{}".format(self.internal_url, tenant_id)
         resp = self.do_internal_request(url, method="GET")
         return resp
 
